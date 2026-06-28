@@ -14,6 +14,40 @@
       --shadow-glow: rgba(0, 0, 0, 0.4);
     }
 
+    /* Leaderboard Styles */
+    .leaderboard-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      color: #a1a1aa;
+      background: rgba(24, 24, 27, 0.55);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 5px;
+    }
+    
+    .leaderboard-table th {
+      background: rgba(24, 24, 27, 0.85);
+      color: #ffffff;
+      font-weight: 600;
+      padding: 6px 12px;
+      text-align: left;
+      text-transform: uppercase;
+      font-size: 0.7rem;
+      letter-spacing: 1px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    
+    .leaderboard-table td {
+      padding: 6px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    
+    .leaderboard-table tr:last-child td {
+      border-bottom: none;
+    }
+
     body {
       margin: 0;
       padding: 0;
@@ -359,7 +393,7 @@
     <div id="gameover-screen" class="overlay">
       <h1 class="game-over-title">Game Over</h1>
       
-      <div class="score-summary">
+      <div class="score-summary" style="margin-bottom: 15px; padding: 12px 30px;">
         <div class="summary-row">
           <span>Final Score:</span>
           <span id="final-score" class="summary-val">0</span>
@@ -367,6 +401,23 @@
         <div class="summary-row">
           <span>Personal Best:</span>
           <span id="best-score-over" class="summary-val">0</span>
+        </div>
+      </div>
+
+      <!-- Submit form -->
+      <div id="leaderboard-submit-form" style="margin-bottom: 15px; width: 100%; max-width: 320px;">
+        <div style="font-size: 0.75rem; text-transform: uppercase; color: #71717a; margin-bottom: 6px; letter-spacing: 1.5px; font-weight: 600;">Submit initials to Leaderboard</div>
+        <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
+          <input type="text" id="player-name-input" placeholder="AAA" maxlength="3" style="background: rgba(24, 24, 27, 0.85); border: 2px solid #ff003c; color: #fff; padding: 8px 12px; border-radius: 8px; width: 80px; text-align: center; font-size: 1.1rem; font-weight: 700; font-family: 'Space Grotesk', sans-serif; text-transform: uppercase; outline: none; box-shadow: 0 0 10px rgba(255, 0, 60, 0.15);">
+          <button id="submit-score-btn" class="play-btn" style="margin-top: 0; padding: 8px 20px; font-size: 0.9rem; border-radius: 8px;">Submit</button>
+        </div>
+      </div>
+
+      <!-- Leaderboard standings -->
+      <div id="leaderboard-display" style="width: 100%; max-width: 320px; display: flex; flex-direction: column; align-items: center; margin-bottom: 20px;">
+        <div style="font-size: 0.75rem; text-transform: uppercase; color: #71717a; margin-bottom: 6px; letter-spacing: 2px; font-weight: 600;">Global Leaderboard</div>
+        <div id="leaderboard-table-container" style="width: 100%;">
+          <div style="font-size: 0.8rem; color: #52525b; padding: 6px;">Loading global standings...</div>
         </div>
       </div>
 
@@ -924,6 +975,130 @@
     restartBtn.addEventListener('click', handleButtonPress);
     restartBtn.addEventListener('touchend', handleButtonPress);
 
+    // --- GLOBAL LEADERBOARD INTEGRATION ---
+    const LEADERBOARD_URL = 'https://kvdb.io/sh1ft_p0l_lead_98263hf7d/scores';
+
+    async function fetchLeaderboard() {
+      try {
+        const response = await fetch(LEADERBOARD_URL);
+        if (response.status === 404) {
+          return []; // Bucket created but key doesn't exist yet
+        }
+        const data = await response.json();
+        return Array.isArray(data) ? data : [];
+      } catch (e) {
+        console.error('Failed to fetch leaderboard:', e);
+        return [];
+      }
+    }
+
+    async function submitScore(name, newScore) {
+      try {
+        const currentList = await fetchLeaderboard();
+        currentList.push({ name: name.toUpperCase().slice(0, 3), score: newScore, date: new Date().toISOString() });
+        
+        // Sort descending
+        currentList.sort((a, b) => b.score - a.score);
+        
+        // Keep top 10
+        const topScores = currentList.slice(0, 10);
+        
+        // Save back
+        await fetch(LEADERBOARD_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(topScores)
+        });
+        return topScores;
+      } catch (e) {
+        console.error('Failed to submit score:', e);
+        return null;
+      }
+    }
+
+    async function loadAndDisplayLeaderboard(highlightName = null, highlightScore = null) {
+      const container = document.getElementById('leaderboard-table-container');
+      if (!container) return;
+      
+      const scores = await fetchLeaderboard();
+      
+      if (scores.length === 0) {
+        container.innerHTML = `<div style="font-size: 0.8rem; color: #52525b; padding: 6px;">No global scores yet. Be the first!</div>`;
+        return;
+      }
+      
+      let html = `<table class="leaderboard-table">`;
+      html += `<tr>`;
+      html += `<th>Rank</th>`;
+      html += `<th>Name</th>`;
+      html += `<th style="text-align: right;">Score</th>`;
+      html += `</tr>`;
+      
+      scores.forEach((item, idx) => {
+        const isHighlighted = (item.name === highlightName && item.score === highlightScore);
+        const trStyle = isHighlighted ? `color: #ff003c; font-weight: 700; background: rgba(255, 0, 60, 0.12);` : ``;
+        
+        let rankStr = `${idx + 1}`;
+        if (idx === 0) rankStr = `👑 ${idx + 1}`;
+        else if (idx === 1) rankStr = `🥈 ${idx + 1}`;
+        else if (idx === 2) rankStr = `🥉 ${idx + 1}`;
+        
+        html += `<tr style="${trStyle}">`;
+        html += `<td>${rankStr}</td>`;
+        html += `<td style="font-weight: 600; letter-spacing: 1px;">${item.name}</td>`;
+        html += `<td style="text-align: right; color: #fff; font-weight: 700;">${item.score}</td>`;
+        html += `</tr>`;
+      });
+      
+      html += `</table>`;
+      container.innerHTML = html;
+    }
+
+    const submitBtn = document.getElementById('submit-score-btn');
+    const nameInput = document.getElementById('player-name-input');
+    const submitForm = document.getElementById('leaderboard-submit-form');
+    
+    // Auto-populate last saved initials
+    nameInput.value = localStorage.getItem('shift_player_initials') || '';
+
+    submitBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      const initials = nameInput.value.trim().toUpperCase();
+      if (initials.length < 1) {
+        alert('Please enter your initials!');
+        return;
+      }
+      
+      localStorage.setItem('shift_player_initials', initials);
+      
+      submitBtn.innerText = '...';
+      submitBtn.disabled = true;
+      nameInput.disabled = true;
+      
+      const updatedScores = await submitScore(initials, score);
+      
+      if (updatedScores) {
+        submitForm.style.display = 'none';
+        await loadAndDisplayLeaderboard(initials, score);
+      } else {
+        submitBtn.innerText = 'Err';
+        submitBtn.disabled = false;
+        nameInput.disabled = false;
+      }
+    });
+
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        submitBtn.click();
+      }
+    });
+
     // --- MAZE PROCEDURAL GENERATION ---
 
     function spawnRow(y) {
@@ -1076,6 +1251,17 @@
         highScore = score;
         localStorage.setItem('shift_highscore', highScore.toString());
       }
+
+      // Reset submit button state & input text
+      submitForm.style.display = 'block';
+      submitBtn.innerText = 'Submit';
+      submitBtn.disabled = false;
+      nameInput.disabled = false;
+
+      // Populate empty table message immediately, then fetch in background
+      document.getElementById('leaderboard-table-container').innerHTML = 
+        `<div style="font-size: 0.8rem; color: #52525b; padding: 6px;">Loading global standings...</div>`;
+      loadAndDisplayLeaderboard();
 
       // Delay Game Over panel overlay slightly to visualize player crash
       setTimeout(() => {
