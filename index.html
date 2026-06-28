@@ -1,0 +1,1524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Shift - Minimalist Polarity Arcade Game</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --border-glow: #27272a;
+      --shadow-glow: rgba(0, 0, 0, 0.4);
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #0b0c10;
+      color: #fff;
+      font-family: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Core container mimicking an arcade cabinet slot or premium mobile frame */
+    #game-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 450px;
+      max-height: 800px;
+      box-sizing: border-box;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 2px solid var(--border-glow);
+      border-radius: 16px;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.9), 0 0 25px var(--shadow-glow);
+      background-color: #121214;
+      transition: border-color 0.25s ease, box-shadow 0.25s ease;
+    }
+
+    /* Fill screen completely on mobile viewports */
+    @media (max-width: 600px) {
+      #game-container {
+        max-width: 100%;
+        max-height: 100%;
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+      }
+    }
+
+    canvas {
+      display: block;
+      background-color: #18181b;
+    }
+
+    /* HUD overlay container (clicks pass through to canvas) */
+    #hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .hud-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hud-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #71717a;
+      margin-bottom: 2px;
+      font-weight: 600;
+    }
+
+    .hud-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: #ffffff;
+      text-shadow: 0 0 8px rgba(255, 255, 255, 0.25);
+    }
+
+    .polarity-display {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(24, 24, 27, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 6px 14px;
+      border-radius: 20px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      transition: all 0.25s ease;
+    }
+
+    .polarity-indicator {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #ffffff;
+      box-shadow: 0 0 8px #ffffff;
+      transition: all 0.25s ease;
+    }
+
+    .polarity-text {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #ffffff;
+      transition: all 0.25s ease;
+    }
+
+    /* Screen overlays (Start, Game Over) */
+    .overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(18, 18, 20, 0.88);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      z-index: 10;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      opacity: 0;
+      visibility: hidden;
+      text-align: center;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+
+    .overlay.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    h1.game-title {
+      font-size: 4.8rem;
+      margin: 0 0 5px 0;
+      font-weight: 700;
+      letter-spacing: 8px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #ffffff 0%, #a1a1aa 50%, #ff003c 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 12px rgba(255, 0, 60, 0.35));
+      animation: pulse-glow 2.5s infinite alternate ease-in-out;
+    }
+
+    @keyframes pulse-glow {
+      from {
+        filter: drop-shadow(0 0 4px rgba(255, 0, 60, 0.2));
+      }
+      to {
+        filter: drop-shadow(0 0 18px rgba(255, 0, 60, 0.7));
+      }
+    }
+
+    .game-subtitle {
+      font-size: 0.9rem;
+      color: #ff003c;
+      text-transform: uppercase;
+      letter-spacing: 4px;
+      margin-bottom: 25px;
+      font-weight: 600;
+      text-shadow: 0 0 10px rgba(255, 0, 60, 0.4);
+    }
+
+    .rules-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin: 15px 0;
+      max-width: 340px;
+      text-align: left;
+    }
+
+    .rule-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 0.85rem;
+      color: #a1a1aa;
+      line-height: 1.4;
+    }
+
+    .rule-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      font-weight: 700;
+      font-size: 0.8rem;
+      flex-shrink: 0;
+    }
+
+    .rule-icon.red {
+      background: rgba(255, 0, 60, 0.15);
+      color: #ff003c;
+      border: 1px solid rgba(255, 0, 60, 0.3);
+      box-shadow: 0 0 8px rgba(255, 0, 60, 0.25);
+    }
+
+    .rule-icon.white-black {
+      background: linear-gradient(135deg, #ffffff 50%, #09090b 50%);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .play-btn {
+      background: transparent;
+      border: 2px solid #ff003c;
+      color: #ff003c;
+      padding: 14px 40px;
+      font-size: 1.15rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 3px;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 0 15px rgba(255, 0, 60, 0.15);
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      outline: none;
+      margin-top: 20px;
+    }
+
+    .play-btn:hover {
+      background: #ff003c;
+      color: #fff;
+      box-shadow: 0 0 25px rgba(255, 0, 60, 0.55);
+      transform: translateY(-2px) scale(1.03);
+    }
+
+    .play-btn:active {
+      transform: translateY(1px) scale(0.98);
+    }
+
+    /* Game over specific styling */
+    .game-over-title {
+      font-size: 3.2rem;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: #ff003c;
+      text-transform: uppercase;
+      margin: 0 0 20px 0;
+      text-shadow: 0 0 20px rgba(255, 0, 60, 0.5);
+    }
+
+    .score-summary {
+      background: rgba(24, 24, 27, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 20px 40px;
+      border-radius: 12px;
+      margin: 15px 0 30px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 200px;
+    }
+
+    .summary-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.95rem;
+      color: #a1a1aa;
+    }
+
+    .summary-val {
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .instruction-tap {
+      font-size: 0.8rem;
+      color: #52525b;
+      margin-top: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="game-container">
+    <!-- Active Game HUD -->
+    <div id="hud">
+      <div class="hud-item">
+        <span class="hud-label">Score</span>
+        <span id="score-value" class="hud-value">0</span>
+      </div>
+      <div id="polarity-hud" class="polarity-display">
+        <div id="polarity-indicator" class="polarity-indicator"></div>
+        <span id="polarity-text" class="polarity-text">Solid: White</span>
+      </div>
+      <div class="hud-item" style="text-align: right;">
+        <span class="hud-label">Best</span>
+        <span id="best-value" class="hud-value">0</span>
+      </div>
+    </div>
+
+    <!-- Main Game Viewport -->
+    <canvas id="game-canvas"></canvas>
+
+    <!-- Start Menu Overlay -->
+    <div id="menu-screen" class="overlay active">
+      <h1 class="game-title">Shift</h1>
+      <div class="game-subtitle">Invert Reality</div>
+      
+      <div class="rules-container">
+        <div class="rule-item">
+          <div class="rule-icon red">▲</div>
+          <div>Your avatar is locked horizontally. You fall continuously down the center.</div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-icon white-black">⇹</div>
+          <div>Tap the screen to toggle universe polarity. Blocks flip between solid walls and open paths.</div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-icon red">🚀</div>
+          <div><strong>Hold down</strong> Space, click, or Touch screen to <strong>Boost</strong> (1.6x speed, double points!).</div>
+        </div>
+        <div class="rule-item">
+          <div class="rule-icon red">⏱</div>
+          <div>Shift polarity at the **very last millisecond** to trigger slow-motion **Chrono-Shifts**!</div>
+        </div>
+      </div>
+
+      <button id="start-btn" class="play-btn">Start Game</button>
+      <div class="instruction-tap">Press Space or Tap Button</div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameover-screen" class="overlay">
+      <h1 class="game-over-title">Game Over</h1>
+      
+      <div class="score-summary">
+        <div class="summary-row">
+          <span>Final Score:</span>
+          <span id="final-score" class="summary-val">0</span>
+        </div>
+        <div class="summary-row">
+          <span>Personal Best:</span>
+          <span id="best-score-over" class="summary-val">0</span>
+        </div>
+      </div>
+
+      <button id="restart-btn" class="play-btn">Try Again</button>
+      <div class="instruction-tap">Press Space or Tap Button</div>
+    </div>
+  </div>
+
+  <script>
+    // --- GAME CONSTANTS ---
+    const POLARITY_WHITE = 0;
+    const POLARITY_BLACK = 1;
+    const COLOR_WHITE = 0;
+    const COLOR_BLACK = 1;
+
+    const STATE_START = 0;
+    const STATE_PLAYING = 1;
+    const STATE_GAMEOVER = 2;
+
+    // --- GAME VARIABLES ---
+    let gameState = STATE_START;
+    let currentPolarity = POLARITY_WHITE;
+    let score = 0;
+    let highScore = parseInt(localStorage.getItem('shift_highscore') || '0');
+
+    // Speed configuration
+    const baseSpeed = 4.0; // Base scrolling speed (pixels per frame at 60Hz)
+    let speed = baseSpeed;
+    const speedIncrement = 0.08; // How much base speed increases per row passed
+    const maxSpeed = 9.0;
+
+    // Kinetic Acceleration & Time Dilation
+    let isBoosting = false;
+    const boostMultiplier = 1.6;
+    let boostDistance = 0; // Accumulator to award bonus score points when boosting
+    let timeDilation = 1.0; // Slows down when executing perfect Chrono-Shifts
+
+    let lastTime = 0;
+    let rows = [];
+    let lastCenterColors = []; // Keeps track of center blocks to avoid endless repeating patterns
+    let particles = [];
+    let popups = [];
+    let speedLines = [];
+
+    // Screen Shake & Visual Juices
+    let shakeIntensity = 0;
+    let flashTime = 0;
+    let flashColor = 'white';
+    let aberrationIntensity = 0; // Set high on perfect shifts, creates chromatic aberration split
+
+    // Canvas & Layout Context
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    let gameWidth = 0;
+    let gameHeight = 0;
+
+    // Avatar Logic
+    const avatar = {
+      x: 0,
+      y: 0,
+      visualSize: 0,
+      hitboxSize: 0,
+      angle: 0,
+      rotationSpeed: 0.038,
+      scale: 1.0
+    };
+
+    // Obstacle dimensions
+    const rowHeight = 44;
+    const rowSpacing = 280; // Distance between spawned rows
+    let colWidth = 0;
+    let gridOffset = 0;
+
+    // Web Audio Synthesizer Instances
+    let audioCtx = null;
+    let boostSynth = null;
+    let boostGain = null;
+
+    // --- SOUND EFFECTS SYNTHESIS (WEB AUDIO API) ---
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playShiftSound() {
+      if (!audioCtx) return;
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      const now = audioCtx.currentTime;
+      osc.type = 'triangle';
+
+      // Pitch sweep dependent on polarity. Warps if time dilation is active
+      const pitchScale = timeDilation < 0.5 ? 0.5 : 1.0;
+      if (currentPolarity === POLARITY_WHITE) {
+        osc.frequency.setValueAtTime(320 * pitchScale, now);
+        osc.frequency.exponentialRampToValueAtTime(680 * pitchScale, now + 0.08);
+      } else {
+        osc.frequency.setValueAtTime(480 * pitchScale, now);
+        osc.frequency.exponentialRampToValueAtTime(240 * pitchScale, now + 0.08);
+      }
+
+      gain.gain.setValueAtTime(0.12, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+      osc.start(now);
+      osc.stop(now + 0.09);
+    }
+
+    function playScoreSound() {
+      if (!audioCtx) return;
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      const now = audioCtx.currentTime;
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(784, now); // G5 note
+      osc.frequency.setValueAtTime(1046.5, now + 0.04); // C6 note
+
+      gain.gain.setValueAtTime(0.06, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+
+      osc.start(now);
+      osc.stop(now + 0.11);
+    }
+
+    function playPerfectSound() {
+      if (!audioCtx) return;
+      initAudio();
+      const now = audioCtx.currentTime;
+
+      // Crystal chime arpeggio (C-Major 7th chord)
+      const arpeggio = [523.25, 659.25, 783.99, 987.77]; // C5, E5, G5, B5
+      arpeggio.forEach((freq, idx) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.03);
+
+        gain.gain.setValueAtTime(0.06, now + idx * 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.03 + 0.35);
+
+        osc.start(now + idx * 0.03);
+        osc.stop(now + idx * 0.03 + 0.38);
+      });
+    }
+
+    function playDeathSound() {
+      if (!audioCtx) return;
+      initAudio();
+      const now = audioCtx.currentTime;
+
+      // Heavy bass oscillator dive
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(200, now);
+      osc1.frequency.linearRampToValueAtTime(30, now + 0.45);
+      gain1.gain.setValueAtTime(0.25, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+      // Distorted square sub-bass
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.type = 'square';
+      osc2.frequency.setValueAtTime(90, now);
+      osc2.frequency.linearRampToValueAtTime(10, now + 0.35);
+      gain2.gain.setValueAtTime(0.2, now);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+      osc1.start(now);
+      osc1.stop(now + 0.46);
+      osc2.start(now);
+      osc2.stop(now + 0.36);
+    }
+
+    function playStartSound() {
+      if (!audioCtx) return;
+      initAudio();
+      const now = audioCtx.currentTime;
+      // Arpeggiated startup chime
+      const arpeggio = [261.63, 329.63, 392.00, 523.25]; // C4, E4, G4, C5
+      arpeggio.forEach((freq, idx) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+        gain.gain.setValueAtTime(0.08, now + idx * 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.15);
+        osc.start(now + idx * 0.07);
+        osc.stop(now + idx * 0.07 + 0.16);
+      });
+    }
+
+    // Kinetic acceleration continuous hum synth
+    function startBoostSound() {
+      if (!audioCtx) return;
+      initAudio();
+      if (boostSynth) return; // Prevent double-triggering
+
+      const now = audioCtx.currentTime;
+      boostSynth = audioCtx.createOscillator();
+      boostGain = audioCtx.createGain();
+
+      boostSynth.type = 'sawtooth';
+      boostSynth.frequency.setValueAtTime(60, now);
+
+      // Low pass filter to make it rumble like a heavy thruster engine
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(130, now);
+
+      boostSynth.connect(filter);
+      filter.connect(boostGain);
+      boostGain.connect(audioCtx.destination);
+
+      boostGain.gain.setValueAtTime(0, now);
+      boostGain.gain.linearRampToValueAtTime(0.18, now + 0.12);
+
+      // Pitch glide up to simulate acceleration curves
+      boostSynth.frequency.exponentialRampToValueAtTime(92, now + 0.6);
+
+      boostSynth.start(now);
+    }
+
+    function stopBoostSound() {
+      if (!boostSynth) return;
+
+      const now = audioCtx.currentTime;
+      boostGain.gain.setValueAtTime(boostGain.gain.value, now);
+      boostGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+      const targetSynth = boostSynth;
+      boostSynth = null;
+      boostGain = null;
+
+      // Safely disconnect node after the release ramp completes
+      setTimeout(() => {
+        try {
+          targetSynth.stop();
+        } catch(e) {}
+      }, 150);
+    }
+
+    // --- GAME ENGINE & SETUP ---
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      let width = window.innerWidth;
+      let height = window.innerHeight;
+
+      // Maintain simulated desktop frame or fit mobile window
+      if (width > 600) {
+        width = 450;
+        height = Math.min(800, window.innerHeight - 40);
+      }
+
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
+
+      // Correct high-DPR screens to avoid vector blurring
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      ctx.scale(dpr, dpr);
+
+      gameWidth = width;
+      gameHeight = height;
+
+      // Update positions relative to context geometry
+      colWidth = gameWidth / 5;
+      avatar.x = gameWidth / 2;
+      avatar.y = gameHeight * 0.28;
+      avatar.visualSize = gameWidth * 0.075; // Approx 33px
+      avatar.hitboxSize = gameWidth * 0.048; // Generous coyote hitbox ~21px
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    document.addEventListener('DOMContentLoaded', () => {
+      resizeCanvas();
+      updateHUD();
+      requestAnimationFrame(loop);
+    });
+
+    // --- INPUT CONTROLS ---
+
+    function triggerShift() {
+      if (gameState !== STATE_PLAYING) return;
+
+      currentPolarity = currentPolarity === POLARITY_WHITE ? POLARITY_BLACK : POLARITY_WHITE;
+
+      // Juice hooks
+      flashTime = 0.35;
+      flashColor = currentPolarity === POLARITY_WHITE ? 'white' : 'black';
+      avatar.scale = 1.45;
+
+      spawnShiftBurst();
+      playShiftSound();
+      updateUIStyles();
+      updateHUD();
+
+      // --- PERFECT SHIFT DETECTION ---
+      let closestRow = null;
+      let minDistance = Infinity;
+
+      const avatarBottom = avatar.y + avatar.hitboxSize / 2;
+
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        // Distances below the avatar
+        const distance = row.y - avatarBottom;
+        if (distance >= 0 && distance < minDistance) {
+          minDistance = distance;
+          closestRow = row;
+        }
+      }
+
+      // Perfect reflex window threshold (10px to 45px before collision)
+      if (closestRow && minDistance >= 10 && minDistance <= 45) {
+        triggerPerfectShift(closestRow);
+      }
+    }
+
+    function triggerPerfectShift(row) {
+      timeDilation = 0.22; // Slow down time to 22%
+      aberrationIntensity = 10; // Trigger chromatic aberration tear
+
+      // Award bonus points for skill
+      score += 1;
+      playPerfectSound();
+      spawnScorePopup(avatar.x, row.y - 20, "+1 PERFECT");
+
+      // Spawn expansion shockwave
+      particles.push({
+        x: avatar.x,
+        y: avatar.y,
+        vx: 0,
+        vy: 0,
+        size: 15,
+        maxSize: 180,
+        isRing: true,
+        opacity: 1.0,
+        decay: 0.04,
+        color: '#00d2ff',
+        glow: true
+      });
+
+      // Special blue neon spark spray
+      const count = 12;
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2;
+        const velocity = 3.0 + Math.random() * 3.5;
+        particles.push({
+          x: avatar.x,
+          y: avatar.y,
+          vx: Math.cos(angle) * velocity,
+          vy: Math.sin(angle) * velocity,
+          size: Math.random() * 3 + 2,
+          opacity: 1.0,
+          decay: 0.03,
+          color: '#00d2ff',
+          glow: true
+        });
+      }
+
+      updateHUD();
+    }
+
+    function startGame() {
+      initAudio();
+      gameState = STATE_PLAYING;
+      
+      // Toggle overlay screen visibility classes
+      document.getElementById('menu-screen').classList.remove('active');
+      document.getElementById('gameover-screen').classList.remove('active');
+
+      resetGameVariables();
+      playStartSound();
+    }
+
+    function resetGameVariables() {
+      currentPolarity = POLARITY_WHITE;
+      score = 0;
+      speed = baseSpeed;
+      isBoosting = false;
+      boostDistance = 0;
+      timeDilation = 1.0;
+      aberrationIntensity = 0;
+      rows = [];
+      lastCenterColors = [];
+      particles = [];
+      popups = [];
+      speedLines = [];
+      shakeIntensity = 0;
+      flashTime = 0;
+      
+      avatar.angle = 0;
+      avatar.scale = 1.0;
+
+      updateUIStyles();
+      updateHUD();
+
+      // Spawn initial obstacle layout ahead of the player
+      const startY = gameHeight * 0.65;
+      for (let i = 0; i < 4; i++) {
+        spawnRow(startY + i * rowSpacing);
+      }
+    }
+
+    function updateUIStyles() {
+      const container = document.getElementById('game-container');
+      if (!container) return;
+
+      if (currentPolarity === POLARITY_WHITE) {
+        container.style.setProperty('--border-glow', '#ffffff');
+        container.style.setProperty('--shadow-glow', 'rgba(255, 255, 255, 0.3)');
+      } else {
+        container.style.setProperty('--border-glow', '#27272a');
+        container.style.setProperty('--shadow-glow', 'rgba(0, 0, 0, 0.6)');
+      }
+    }
+
+    function updateHUD() {
+      document.getElementById('score-value').innerText = score;
+      document.getElementById('best-value').innerText = highScore;
+
+      const indicator = document.getElementById('polarity-indicator');
+      const text = document.getElementById('polarity-text');
+
+      if (currentPolarity === POLARITY_WHITE) {
+        indicator.style.background = '#ffffff';
+        indicator.style.boxShadow = '0 0 10px #ffffff';
+        text.innerText = 'Solid: White';
+        text.style.color = '#ffffff';
+      } else {
+        indicator.style.background = '#27272a';
+        indicator.style.boxShadow = '0 0 10px #000000, 0 0 3px rgba(255, 255, 255, 0.4)';
+        text.innerText = 'Solid: Black';
+        text.style.color = '#a1a1aa';
+      }
+    }
+
+    // Input listeners (Universal mobile touch + click boundaries)
+    const container = document.getElementById('game-container');
+
+    container.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.play-btn')) return; // Allow button clicks
+      e.preventDefault();
+      initAudio();
+      
+      if (gameState === STATE_PLAYING) {
+        isBoosting = true;
+        triggerShift();
+        startBoostSound();
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (isBoosting) {
+        isBoosting = false;
+        stopBoostSound();
+      }
+    });
+
+    container.addEventListener('mouseleave', () => {
+      if (isBoosting) {
+        isBoosting = false;
+        stopBoostSound();
+      }
+    });
+
+    container.addEventListener('touchstart', (e) => {
+      if (e.target.closest('.play-btn')) return;
+      e.preventDefault();
+      initAudio();
+
+      if (gameState === STATE_PLAYING) {
+        isBoosting = true;
+        triggerShift();
+        startBoostSound();
+      }
+    }, { passive: false });
+
+    container.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      if (isBoosting) {
+        isBoosting = false;
+        stopBoostSound();
+      }
+    });
+
+    container.addEventListener('touchcancel', (e) => {
+      if (isBoosting) {
+        isBoosting = false;
+        stopBoostSound();
+      }
+    });
+
+    // Keyboard Space bindings (Keydown repeats ignored for instant boost activation)
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        if (e.repeat) return; // Prevent browsers firing infinite shifts on hold
+        
+        if (gameState === STATE_PLAYING) {
+          isBoosting = true;
+          triggerShift();
+          startBoostSound();
+        } else if (gameState === STATE_START) {
+          startGame();
+        } else if (gameState === STATE_GAMEOVER) {
+          startGame();
+        }
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      if (e.code === 'Space') {
+        isBoosting = false;
+        stopBoostSound();
+      }
+    });
+
+    // Register button elements
+    document.getElementById('start-btn').addEventListener('click', startGame);
+    document.getElementById('restart-btn').addEventListener('click', startGame);
+
+    // --- MAZE PROCEDURAL GENERATION ---
+
+    function spawnRow(y) {
+      let centerColor;
+
+      // Enforce rhythm: maximum 2 consecutive columns of same color
+      if (lastCenterColors.length >= 2 && lastCenterColors[0] === lastCenterColors[1]) {
+        centerColor = lastCenterColors[0] === COLOR_WHITE ? COLOR_BLACK : COLOR_WHITE;
+      } else {
+        centerColor = Math.random() < 0.5 ? COLOR_WHITE : COLOR_BLACK;
+      }
+
+      // Track center colors to feed generator constraints
+      lastCenterColors.push(centerColor);
+      if (lastCenterColors.length > 2) {
+        lastCenterColors.shift();
+      }
+
+      // Build segments
+      const blocks = [];
+      for (let c = 0; c < 5; c++) {
+        if (c === 2) {
+          blocks.push(centerColor);
+        } else {
+          // Surrounding blocks generated randomly to build a visual maze
+          blocks.push(Math.random() < 0.5 ? COLOR_WHITE : COLOR_BLACK);
+        }
+      }
+
+      // Starting at score 8, spawn sliding obstacles to create a kinetic belt
+      const isSliding = score >= 8 && Math.random() < 0.45;
+      const slideSpeed = isSliding ? (1.1 + Math.random() * 1.3) * (1.0 + score * 0.02) : 0;
+      const slideDirection = Math.random() < 0.5 ? -1 : 1;
+
+      rows.push({
+        y: y,
+        height: rowHeight,
+        blocks: blocks,
+        scored: false,
+        isSliding: isSliding,
+        slideSpeed: slideSpeed,
+        slideDirection: slideDirection,
+        xOffset: 0
+      });
+    }
+
+    // --- GAME ENGINE PARTICLES & POPUPS ---
+
+    function spawnTrailParticle() {
+      const offsetWidth = isBoosting ? 4 : 12;
+      particles.push({
+        x: avatar.x + (Math.random() - 0.5) * offsetWidth,
+        y: avatar.y + (Math.random() - 0.5) * 12,
+        vx: (Math.random() - 0.5) * 0.8,
+        vy: -speed * (isBoosting ? 0.45 : 0.25) - Math.random() * 0.8, // Drift backwards from fall
+        size: Math.random() * 4 + 2,
+        opacity: isBoosting ? 0.9 : 0.75,
+        decay: 0.02 + Math.random() * 0.02,
+        color: isBoosting ? '#ff3366' : '#ff003c',
+        glow: true
+      });
+    }
+
+    function spawnShiftBurst() {
+      const count = 18;
+      const color = currentPolarity === POLARITY_WHITE ? '#ffffff' : '#3f3f46';
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2;
+        const velocity = 2.5 + Math.random() * 3.5;
+        particles.push({
+          x: avatar.x,
+          y: avatar.y,
+          vx: Math.cos(angle) * velocity,
+          vy: Math.sin(angle) * velocity,
+          size: Math.random() * 4 + 3,
+          opacity: 1.0,
+          decay: 0.04 + Math.random() * 0.02,
+          color: color,
+          glow: currentPolarity === POLARITY_WHITE
+        });
+      }
+    }
+
+    function spawnDeathExplosion() {
+      const count = 35;
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const velocity = 1.5 + Math.random() * 6.0;
+        particles.push({
+          x: avatar.x,
+          y: avatar.y,
+          vx: Math.cos(angle) * velocity,
+          vy: Math.sin(angle) * velocity,
+          size: Math.random() * 7 + 3,
+          opacity: 1.0,
+          decay: 0.015 + Math.random() * 0.015,
+          color: '#ff003c',
+          glow: true
+        });
+      }
+    }
+
+    function spawnScorePopup(x, y, text) {
+      popups.push({
+        x: x,
+        y: y,
+        vy: -1.8,
+        opacity: 1.0,
+        text: text
+      });
+    }
+
+    function handleSpeedLines(dtFactor, currentSpeed) {
+      // Spawn new lines faster and more frequently when boosting
+      const spawnChance = isBoosting ? 0.35 : 0.12;
+      const maxLinesCount = isBoosting ? 25 : 15;
+
+      if (speedLines.length < maxLinesCount && Math.random() < spawnChance) {
+        speedLines.push({
+          x: Math.random() * gameWidth,
+          y: gameHeight + 10,
+          length: 20 + Math.random() * 35,
+          speedMult: 0.75 + Math.random() * 0.45,
+          opacity: 0.04 + Math.random() * 0.08
+        });
+      }
+
+      // Update lines
+      for (let i = speedLines.length - 1; i >= 0; i--) {
+        const line = speedLines[i];
+        line.y -= currentSpeed * line.speedMult * dtFactor;
+        if (line.y + line.length < 0) {
+          speedLines.splice(i, 1);
+        }
+      }
+    }
+
+    // --- COLLISION LOGIC ---
+
+    function triggerGameOver() {
+      gameState = STATE_GAMEOVER;
+      isBoosting = false;
+      stopBoostSound();
+      
+      playDeathSound();
+      spawnDeathExplosion();
+      shakeIntensity = 16;
+
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('shift_highscore', highScore.toString());
+      }
+
+      // Delay Game Over panel overlay slightly to visualize player crash
+      setTimeout(() => {
+        if (gameState === STATE_GAMEOVER) {
+          document.getElementById('final-score').innerText = score;
+          document.getElementById('best-score-over').innerText = highScore;
+          document.getElementById('gameover-screen').classList.add('active');
+        }
+      }, 750);
+    }
+
+    function checkCollisions() {
+      if (gameState !== STATE_PLAYING) return;
+
+      const ax1 = avatar.x - avatar.hitboxSize / 2;
+      const ax2 = avatar.x + avatar.hitboxSize / 2;
+      const ay1 = avatar.y - avatar.hitboxSize / 2;
+      const ay2 = avatar.y + avatar.hitboxSize / 2;
+
+      for (let r = 0; r < rows.length; r++) {
+        const row = rows[r];
+
+        // Fail-fast vertical boundary check
+        if (ay2 < row.y || ay1 > row.y + row.height) {
+          continue;
+        }
+
+        const isSliding = row.isSliding;
+        const xOffset = row.xOffset || 0;
+
+        // Check columns. Slide expands drawing index from -1 to 5 to avoid screen border gaps
+        const startCol = isSliding ? -1 : 0;
+        const endCol = isSliding ? 5 : 4;
+
+        // Horizontal column segment check
+        for (let c = startCol; c <= endCol; c++) {
+          let bx1 = c * colWidth;
+          if (isSliding) {
+            bx1 += (xOffset % colWidth);
+          }
+          const bx2 = bx1 + colWidth;
+
+          if (ax2 < bx1 || ax1 > bx2) {
+            continue; // No horizontal overlap with this column
+          }
+
+          // Unwrap index wrap to fetch local block attributes
+          let blockIdx = c;
+          if (isSliding) {
+            blockIdx = (c - Math.floor(xOffset / colWidth)) % 5;
+            if (blockIdx < 0) blockIdx += 5;
+          }
+
+          const blockType = row.blocks[blockIdx];
+
+          // Evaluate block density based on universe state
+          const isSolid = (blockType === COLOR_WHITE && currentPolarity === POLARITY_WHITE) ||
+                          (blockType === COLOR_BLACK && currentPolarity === POLARITY_BLACK);
+
+          if (isSolid) {
+            triggerGameOver();
+            return;
+          }
+        }
+      }
+    }
+
+    // --- GAME LOOP & UPDATES ---
+
+    function update(dtFactor) {
+      // Decay chromatic aberration split
+      if (aberrationIntensity > 0) {
+        aberrationIntensity -= 0.3 * dtFactor;
+        if (aberrationIntensity < 0) aberrationIntensity = 0;
+      }
+
+      // Calculate relative frame velocity
+      const currentSpeed = speed * (isBoosting ? boostMultiplier : 1.0) * timeDilation;
+
+      if (gameState === STATE_PLAYING) {
+        avatar.angle += avatar.rotationSpeed * dtFactor * timeDilation;
+        // Interpolate avatar scale back to normal
+        avatar.scale += (1.0 - avatar.scale) * 0.15 * dtFactor;
+
+        // Slowly recover time dilation back to 1.0
+        timeDilation += (1.0 - timeDilation) * 0.08 * dtFactor;
+
+        // Spawn trailing speed sparks
+        const trailChance = isBoosting ? 0.8 : 0.45;
+        if (Math.random() < trailChance) {
+          spawnTrailParticle();
+        }
+
+        // Update rows
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          row.y -= currentSpeed * dtFactor;
+
+          if (row.isSliding) {
+            row.xOffset += row.slideSpeed * row.slideDirection * dtFactor * timeDilation;
+          }
+        }
+
+        // Score rows
+        for (let i = 0; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row.scored && (row.y + row.height) < (avatar.y - avatar.hitboxSize / 2)) {
+            row.scored = true;
+            
+            // Earn double points if bypassing obstacles while boosting
+            const pointsGained = isBoosting ? 2 : 1;
+            score += pointsGained;
+            playScoreSound();
+            
+            const popupText = isBoosting ? "+2 BOOST" : "+1";
+            spawnScorePopup(avatar.x, row.y, popupText);
+            
+            updateHUD();
+
+            // Gradually accelerate scrolling
+            speed = Math.min(maxSpeed, baseSpeed + score * speedIncrement);
+          }
+        }
+
+        // Kinetic Acceleration distance scoring reward
+        if (isBoosting) {
+          boostDistance += currentSpeed * dtFactor;
+          if (boostDistance >= 480) { // Every ~1 full screen height traveled
+            boostDistance -= 480;
+            score++;
+            playScoreSound();
+            spawnScorePopup(avatar.x + 45, avatar.y, "+1 BOOST");
+            updateHUD();
+          }
+        }
+
+        // Prune offscreen blocks
+        while (rows.length > 0 && rows[0].y + rows[0].height < 0) {
+          rows.shift();
+        }
+
+        // Top up procedural queue
+        while (rows.length < 4) {
+          let lastY = gameHeight;
+          if (rows.length > 0) {
+            lastY = rows[rows.length - 1].y;
+          }
+          spawnRow(lastY + rowSpacing);
+        }
+      }
+
+      // Update background speed vectors
+      handleSpeedLines(dtFactor, currentSpeed);
+
+      // Update particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        if (p.isRing) {
+          p.size += (p.maxSize - p.size) * 0.12 * dtFactor;
+          p.opacity -= p.decay * dtFactor;
+        } else {
+          p.x += p.vx * dtFactor;
+          p.y += p.vy * dtFactor;
+          p.opacity -= p.decay * dtFactor;
+        }
+        if (p.opacity <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+
+      // Update score floating texts
+      for (let i = popups.length - 1; i >= 0; i--) {
+        const pop = popups[i];
+        pop.y += pop.vy * dtFactor;
+        pop.opacity -= 0.025 * dtFactor;
+        if (pop.opacity <= 0) {
+          popups.splice(i, 1);
+        }
+      }
+
+      // Collisions
+      checkCollisions();
+    }
+
+    // --- GRAPHICS DRAWING ---
+
+    function drawGrid() {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.015)';
+      ctx.lineWidth = 1;
+
+      // Draw columns vertical rules
+      for (let c = 0; c <= 5; c++) {
+        ctx.beginPath();
+        ctx.moveTo(c * colWidth, 0);
+        ctx.lineTo(c * colWidth, gameHeight);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawSpeedLines() {
+      ctx.save();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = isBoosting ? 2 : 1;
+      for (let i = 0; i < speedLines.length; i++) {
+        const line = speedLines[i];
+        ctx.globalAlpha = line.opacity * (isBoosting ? 2.2 : 1.0);
+        ctx.beginPath();
+        ctx.moveTo(line.x, line.y);
+        
+        // Stretch lines during boost acceleration
+        const targetLength = line.length * (isBoosting ? 2.5 : 1.0);
+        ctx.lineTo(line.x, line.y + targetLength);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawBlocks() {
+      for (let r = 0; r < rows.length; r++) {
+        const row = rows[r];
+        const isSliding = row.isSliding;
+        const xOffset = row.xOffset || 0;
+
+        const startCol = isSliding ? -1 : 0;
+        const endCol = isSliding ? 5 : 4;
+
+        for (let c = startCol; c <= endCol; c++) {
+          let blockIdx = c;
+          if (isSliding) {
+            blockIdx = (c - Math.floor(xOffset / colWidth)) % 5;
+            if (blockIdx < 0) blockIdx += 5;
+          }
+
+          const blockType = row.blocks[blockIdx];
+          
+          let bx = c * colWidth;
+          if (isSliding) {
+            bx += (xOffset % colWidth);
+          }
+
+          const by = row.y;
+          const bw = colWidth;
+          const bh = row.height;
+
+          const isSolid = (blockType === COLOR_WHITE && currentPolarity === POLARITY_WHITE) ||
+                          (blockType === COLOR_BLACK && currentPolarity === POLARITY_BLACK);
+
+          ctx.save();
+          if (isSolid) {
+            if (blockType === COLOR_WHITE) {
+              // Glowing solid white block
+              ctx.fillStyle = '#ffffff';
+              ctx.shadowColor = '#ffffff';
+              ctx.shadowBlur = 10;
+            } else {
+              // Pure pitch solid black block with subtle outline structure
+              ctx.fillStyle = '#050507';
+              ctx.shadowColor = '#3f3f46';
+              ctx.shadowBlur = 4;
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+              ctx.lineWidth = 1.5;
+            }
+
+            ctx.fillRect(bx, by, bw, bh);
+            if (blockType === COLOR_BLACK) {
+              ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
+            }
+
+            // Draw chevrons to indicate sliding row direction
+            if (isSliding) {
+              ctx.strokeStyle = blockType === COLOR_WHITE ? 'rgba(0, 0, 0, 0.25)' : 'rgba(255, 255, 255, 0.25)';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              const cx = bx + bw / 2;
+              const cy = by + bh / 2;
+              const dir = row.slideDirection;
+              // Lateral arrows matching heading direction
+              ctx.moveTo(cx - 6 * dir, cy - 6);
+              ctx.lineTo(cx + 2 * dir, cy);
+              ctx.lineTo(cx - 6 * dir, cy + 6);
+              
+              ctx.moveTo(cx - 1 * dir, cy - 6);
+              ctx.lineTo(cx + 7 * dir, cy);
+              ctx.lineTo(cx - 1 * dir, cy + 6);
+              ctx.stroke();
+            }
+          } else {
+            // Faded pass-through blocks
+            if (blockType === COLOR_WHITE) {
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
+            } else {
+              ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+              ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+              ctx.lineWidth = 1;
+              ctx.strokeRect(bx, by, bw, bh);
+            }
+            ctx.fillRect(bx, by, bw, bh);
+          }
+          ctx.restore();
+        }
+      }
+    }
+
+    function drawAvatar() {
+      if (gameState === STATE_GAMEOVER) return; // Hide on explosion crash
+
+      let sx = avatar.scale;
+      let sy = avatar.scale;
+
+      // Chromatic Aberration visual split
+      const effAberration = aberrationIntensity + (isBoosting ? 3 : 0);
+      if (effAberration > 0.1) {
+        // Cyan shadow offset
+        ctx.save();
+        ctx.translate(avatar.x - effAberration, avatar.y);
+        if (isBoosting) ctx.scale(0.86, 1.25); // Squash and stretch in screen space
+        ctx.rotate(avatar.angle);
+        ctx.scale(sx, sy);
+        ctx.fillStyle = 'rgba(0, 210, 255, 0.4)';
+        ctx.fillRect(-avatar.visualSize / 2, -avatar.visualSize / 2, avatar.visualSize, avatar.visualSize);
+        ctx.restore();
+
+        // Magenta shadow offset
+        ctx.save();
+        ctx.translate(avatar.x + effAberration, avatar.y);
+        if (isBoosting) ctx.scale(0.86, 1.25);
+        ctx.rotate(avatar.angle);
+        ctx.scale(sx, sy);
+        ctx.fillStyle = 'rgba(255, 0, 90, 0.4)';
+        ctx.fillRect(-avatar.visualSize / 2, -avatar.visualSize / 2, avatar.visualSize, avatar.visualSize);
+        ctx.restore();
+      }
+
+      // Main Avatar
+      ctx.save();
+      ctx.translate(avatar.x, avatar.y);
+      if (isBoosting) ctx.scale(0.86, 1.25); // Elongate visual stretch along the Y axis of fall
+      ctx.rotate(avatar.angle);
+      ctx.scale(sx, sy);
+
+      // Layer 1: Ambient outer halo aura
+      ctx.fillStyle = 'rgba(255, 0, 60, 0.15)';
+      ctx.fillRect(-avatar.visualSize * 0.72, -avatar.visualSize * 0.72, avatar.visualSize * 1.44, avatar.visualSize * 1.44);
+
+      // Layer 2: Neon Red outer shell
+      ctx.fillStyle = '#ff003c';
+      ctx.shadowColor = '#ff003c';
+      ctx.shadowBlur = 18;
+      ctx.fillRect(-avatar.visualSize / 2, -avatar.visualSize / 2, avatar.visualSize, avatar.visualSize);
+
+      // Layer 3: High contrast white core
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowBlur = 0; // Disable blur overhead to keep core razor sharp
+      ctx.fillRect(-avatar.visualSize / 4, -avatar.visualSize / 4, avatar.visualSize / 2, avatar.visualSize / 2);
+
+      ctx.restore();
+    }
+
+    function drawParticles() {
+      for (let i = 0; i < particles.length; i++) {
+        const p = particles[i];
+        ctx.save();
+        ctx.fillStyle = p.color;
+        ctx.strokeStyle = p.color;
+        ctx.globalAlpha = p.opacity;
+        if (p.glow) {
+          ctx.shadowColor = p.color;
+          ctx.shadowBlur = 8;
+        }
+
+        if (p.isRing) {
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+    }
+
+    function drawPopups() {
+      for (let i = 0; i < popups.length; i++) {
+        const pop = popups[i];
+        ctx.save();
+        ctx.fillStyle = `rgba(255, 255, 255, ${pop.opacity})`;
+        ctx.font = 'bold 20px "Space Grotesk", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.shadowColor = '#ffffff';
+        ctx.shadowBlur = 6;
+        ctx.fillText(pop.text, pop.x, pop.y);
+        ctx.restore();
+      }
+    }
+
+    function draw(dtFactor) {
+      // Screen shake context offset
+      ctx.save();
+      if (shakeIntensity > 0) {
+        const dx = (Math.random() - 0.5) * shakeIntensity;
+        const dy = (Math.random() - 0.5) * shakeIntensity;
+        ctx.translate(dx, dy);
+
+        // Exponential dampening
+        shakeIntensity *= 0.88;
+        if (shakeIntensity < 0.1) shakeIntensity = 0;
+      }
+
+      // Clear layout
+      ctx.fillStyle = '#18181b';
+      ctx.fillRect(0, 0, gameWidth, gameHeight);
+
+      // Draw sub-layers
+      drawGrid();
+      drawSpeedLines();
+      drawBlocks();
+      drawParticles();
+      drawAvatar();
+      drawPopups();
+
+      // Draw polarity flash overlay
+      if (flashTime > 0) {
+        ctx.save();
+        ctx.globalAlpha = flashTime;
+        ctx.fillStyle = flashColor === 'white' ? '#ffffff' : '#000000';
+        ctx.fillRect(0, 0, gameWidth, gameHeight);
+        ctx.restore();
+
+        flashTime -= 0.05 * dtFactor;
+      }
+
+      ctx.restore();
+    }
+
+    // --- MAIN TICK LOOP ---
+
+    function loop(time) {
+      if (!lastTime) lastTime = time;
+      
+      // Calculate delta frame factor to stabilize speeds across varying monitor rates
+      const dt = time - lastTime;
+      lastTime = time;
+
+      // Standardize around 60fps base interval (16.67ms)
+      const dtFactor = Math.min(3.0, dt / 16.666);
+
+      update(dtFactor);
+      draw(dtFactor);
+
+      requestAnimationFrame(loop);
+    }
+  </script>
+</body>
+</html>
