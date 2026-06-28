@@ -868,6 +868,7 @@
     }, { passive: false });
 
     container.addEventListener('touchend', (e) => {
+      if (e.target.closest('.play-btn')) return; // Do not prevent default/cancel taps on menu buttons
       e.preventDefault();
       if (isBoosting) {
         isBoosting = false;
@@ -907,9 +908,21 @@
       }
     });
 
-    // Register button elements
-    document.getElementById('start-btn').addEventListener('click', startGame);
-    document.getElementById('restart-btn').addEventListener('click', startGame);
+    // Register button elements with dual touch/click support for immediate response
+    const startBtn = document.getElementById('start-btn');
+    const restartBtn = document.getElementById('restart-btn');
+
+    function handleButtonPress(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      startGame();
+    }
+
+    startBtn.addEventListener('click', handleButtonPress);
+    startBtn.addEventListener('touchend', handleButtonPress);
+
+    restartBtn.addEventListener('click', handleButtonPress);
+    restartBtn.addEventListener('touchend', handleButtonPress);
 
     // --- MAZE PROCEDURAL GENERATION ---
 
