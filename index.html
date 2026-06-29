@@ -406,9 +406,9 @@
 
       <!-- Submit form -->
       <div id="leaderboard-submit-form" style="margin-bottom: 15px; width: 100%; max-width: 320px;">
-        <div style="font-size: 0.75rem; text-transform: uppercase; color: #71717a; margin-bottom: 6px; letter-spacing: 1.5px; font-weight: 600;">Submit initials to Leaderboard</div>
+        <div style="font-size: 0.75rem; text-transform: uppercase; color: #71717a; margin-bottom: 6px; letter-spacing: 1.5px; font-weight: 600;">Submit your name to Leaderboard</div>
         <div style="display: flex; gap: 8px; justify-content: center; align-items: center;">
-          <input type="text" id="player-name-input" placeholder="AAA" maxlength="3" style="background: rgba(24, 24, 27, 0.85); border: 2px solid #ff003c; color: #fff; padding: 8px 12px; border-radius: 8px; width: 80px; text-align: center; font-size: 1.1rem; font-weight: 700; font-family: 'Space Grotesk', sans-serif; text-transform: uppercase; outline: none; box-shadow: 0 0 10px rgba(255, 0, 60, 0.15);">
+          <input type="text" id="player-name-input" placeholder="PLAYER" maxlength="7" style="background: rgba(24, 24, 27, 0.85); border: 2px solid #ff003c; color: #fff; padding: 8px 12px; border-radius: 8px; width: 140px; text-align: center; font-size: 1.1rem; font-weight: 700; font-family: 'Space Grotesk', sans-serif; text-transform: uppercase; outline: none; box-shadow: 0 0 10px rgba(255, 0, 60, 0.15);">
           <button id="submit-score-btn" class="play-btn" style="margin-top: 0; padding: 8px 20px; font-size: 0.9rem; border-radius: 8px;">Submit</button>
         </div>
       </div>
@@ -881,7 +881,7 @@
     const container = document.getElementById('game-container');
 
     container.addEventListener('mousedown', (e) => {
-      if (e.target.closest('.play-btn')) return; // Allow button clicks
+      if (e.target.closest('.play-btn') || e.target.closest('#player-name-input')) return; // Allow button clicks & input focus
       e.preventDefault();
       initAudio();
       
@@ -907,7 +907,7 @@
     });
 
     container.addEventListener('touchstart', (e) => {
-      if (e.target.closest('.play-btn')) return;
+      if (e.target.closest('.play-btn') || e.target.closest('#player-name-input')) return; // Allow button clicks & input focus
       e.preventDefault();
       initAudio();
 
@@ -919,7 +919,7 @@
     }, { passive: false });
 
     container.addEventListener('touchend', (e) => {
-      if (e.target.closest('.play-btn')) return; // Do not prevent default/cancel taps on menu buttons
+      if (e.target.closest('.play-btn') || e.target.closest('#player-name-input')) return; // Do not prevent default/cancel taps on menu buttons & input
       e.preventDefault();
       if (isBoosting) {
         isBoosting = false;
@@ -995,7 +995,7 @@
     async function submitScore(name, newScore) {
       try {
         const currentList = await fetchLeaderboard();
-        currentList.push({ name: name.toUpperCase().slice(0, 3), score: newScore, date: new Date().toISOString() });
+        currentList.push({ name: name.toUpperCase().slice(0, 7), score: newScore, date: new Date().toISOString() });
         
         // Sort descending
         currentList.sort((a, b) => b.score - a.score);
