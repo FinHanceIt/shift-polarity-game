@@ -1802,6 +1802,11 @@
           continue;
         }
 
+        // Skip collision detection if the row has been vaporized by a blast power-up
+        if (row.vaporized) {
+          continue;
+        }
+
         // Get the block type at the exact horizontal center of the avatar
         const blockType = getBlockTypeAt(row, avatar.x);
 
