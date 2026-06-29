@@ -1865,6 +1865,7 @@
 
           if (row.isSliding) {
             row.xOffset += row.slideSpeed * row.slideDirection * dtFactor * timeDilation * (slowmoTime > 0 ? 0.5 : 1.0);
+            row.xOffset = ((row.xOffset % gameWidth) + gameWidth) % gameWidth;
           }
         }
 
