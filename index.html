@@ -976,13 +976,13 @@
     restartBtn.addEventListener('touchend', handleButtonPress);
 
     // --- GLOBAL LEADERBOARD INTEGRATION ---
-    const LEADERBOARD_URL = 'https://kvdb.io/sh1ft_p0l_lead_98263hf7d/scores';
+    const LEADERBOARD_URL = 'https://extendsclass.com/api/json-storage/bin/aadcecb';
 
     async function fetchLeaderboard() {
       try {
         const response = await fetch(LEADERBOARD_URL);
         if (response.status === 404) {
-          return []; // Bucket created but key doesn't exist yet
+          return [];
         }
         const data = await response.json();
         return Array.isArray(data) ? data : [];
@@ -1003,14 +1003,19 @@
         // Keep top 10
         const topScores = currentList.slice(0, 10);
         
-        // Save back
-        await fetch(LEADERBOARD_URL, {
-          method: 'POST',
+        // Save back via PUT (required by ExtendsClass API)
+        const response = await fetch(LEADERBOARD_URL, {
+          method: 'PUT',
           headers: {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify(topScores)
         });
+        
+        if (!response.ok) {
+          throw new Error('Failed to PUT scores: ' + response.statusText);
+        }
+        
         return topScores;
       } catch (e) {
         console.error('Failed to submit score:', e);
