@@ -464,7 +464,10 @@
     <div id="hud">
       <div class="hud-item">
         <span class="hud-label">Score</span>
-        <span id="score-value" class="hud-value">0</span>
+        <div style="display: flex; align-items: baseline; gap: 6px;">
+          <span id="score-value" class="hud-value">0</span>
+          <span id="multiplier-hud" style="font-size: 0.8rem; font-weight: 700; color: #a1a1aa; text-shadow: 0 0 4px rgba(255, 255, 255, 0.2); transition: color 0.25s ease;">1x</span>
+        </div>
       </div>
       <div id="polarity-hud" class="polarity-display">
         <div id="polarity-indicator" class="polarity-indicator"></div>
@@ -679,6 +682,7 @@
     let activePowerups = [];
     let shieldTime = 0;
     let slowmoTime = 0;
+    let timePlayed = 0;
 
     let lastTime = 0;
     let rows = [];
@@ -989,10 +993,11 @@
       timeDilation = 0.22; // Slow down time to 22%
       aberrationIntensity = 10; // Trigger chromatic aberration tear
 
-      // Award bonus points for skill
-      score += 1;
+      // Award bonus points for skill (scales with speed multiplier)
+      const speedMult = Math.max(1, Math.floor(speed - 3.0));
+      score += speedMult;
       playPerfectSound();
-      spawnScorePopup(avatar.x, row.y - 20, "+1 PERFECT");
+      spawnScorePopup(avatar.x, row.y - 20, "+" + speedMult + " PERFECT");
 
       // Spawn expansion shockwave
       particles.push({
@@ -1061,6 +1066,7 @@
       activePowerups = [];
       shieldTime = 0;
       slowmoTime = 0;
+      timePlayed = 0;
       updatePowerupHUD();
       
       avatar.angle = 0;
@@ -1093,6 +1099,25 @@
     function updateHUD() {
       document.getElementById('score-value').innerText = score;
       document.getElementById('best-value').innerText = highScore;
+
+      const speedMult = Math.max(1, Math.floor(speed - 3.0));
+      const multHud = document.getElementById('multiplier-hud');
+      if (multHud) {
+        multHud.innerText = `${speedMult}x`;
+        if (speedMult >= 6) {
+          multHud.style.color = '#ff003c';
+          multHud.style.textShadow = '0 0 8px rgba(255, 0, 60, 0.6)';
+        } else if (speedMult >= 4) {
+          multHud.style.color = '#f59e0b';
+          multHud.style.textShadow = '0 0 6px rgba(245, 158, 11, 0.5)';
+        } else if (speedMult >= 2) {
+          multHud.style.color = '#10b981';
+          multHud.style.textShadow = '0 0 6px rgba(16, 185, 129, 0.4)';
+        } else {
+          multHud.style.color = '#a1a1aa';
+          multHud.style.textShadow = 'none';
+        }
+      }
 
       const indicator = document.getElementById('polarity-indicator');
       const text = document.getElementById('polarity-text');
@@ -1830,6 +1855,11 @@
         if (aberrationIntensity < 0) aberrationIntensity = 0;
       }
 
+      if (gameState === STATE_PLAYING) {
+        timePlayed += (dtFactor / 60);
+        speed = Math.min(11.0, baseSpeed + timePlayed * 0.06);
+      }
+
       // Calculate relative frame velocity
       const currentSpeed = speed * (isBoosting ? boostMultiplier : 1.0) * timeDilation * (slowmoTime > 0 ? 0.5 : 1.0);
 
@@ -1900,18 +1930,15 @@
           if (!row.scored && (row.y + row.height) < (avatar.y - avatar.hitboxSize / 2)) {
             row.scored = true;
             
-            // Earn double points if bypassing obstacles while boosting
-            const pointsGained = isBoosting ? 2 : 1;
+            const speedMult = Math.max(1, Math.floor(speed - 3.0));
+            const pointsGained = (isBoosting ? 2 : 1) * speedMult;
             score += pointsGained;
             playScoreSound();
             
-            const popupText = isBoosting ? "+2 BOOST" : "+1";
+            const popupText = (isBoosting ? "+ " : "+") + pointsGained + (isBoosting ? " BOOST" : "");
             spawnScorePopup(avatar.x, row.y, popupText);
             
             updateHUD();
-
-            // Gradually accelerate scrolling
-            speed = Math.min(maxSpeed, baseSpeed + score * speedIncrement);
           }
         }
 
@@ -1920,9 +1947,10 @@
           boostDistance += currentSpeed * dtFactor;
           if (boostDistance >= 480) { // Every ~1 full screen height traveled
             boostDistance -= 480;
-            score++;
+            const speedMult = Math.max(1, Math.floor(speed - 3.0));
+            score += speedMult;
             playScoreSound();
-            spawnScorePopup(avatar.x + 45, avatar.y, "+1 BOOST");
+            spawnScorePopup(avatar.x + 45, avatar.y, "+" + speedMult + " BOOST");
             updateHUD();
           }
         }
