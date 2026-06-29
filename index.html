@@ -976,12 +976,12 @@
     restartBtn.addEventListener('touchend', handleButtonPress);
 
     // --- GLOBAL LEADERBOARD INTEGRATION ---
-    const LEADERBOARD_URL = 'https://extendsclass.com/api/json-storage/bin/aadcecb';
+    const LEADERBOARD_URL = '/.netlify/functions/scores';
 
     async function fetchLeaderboard() {
       try {
         const response = await fetch(LEADERBOARD_URL);
-        if (response.status === 404) {
+        if (!response.ok) {
           return [];
         }
         const data = await response.json();
@@ -994,28 +994,19 @@
 
     async function submitScore(name, newScore) {
       try {
-        const currentList = await fetchLeaderboard();
-        currentList.push({ name: name.toUpperCase().slice(0, 7), score: newScore, date: new Date().toISOString() });
-        
-        // Sort descending
-        currentList.sort((a, b) => b.score - a.score);
-        
-        // Keep top 10
-        const topScores = currentList.slice(0, 10);
-        
-        // Save back via PUT (required by ExtendsClass API)
         const response = await fetch(LEADERBOARD_URL, {
-          method: 'PUT',
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(topScores)
+          body: JSON.stringify({ name: name, score: newScore })
         });
         
         if (!response.ok) {
-          throw new Error('Failed to PUT scores: ' + response.statusText);
+          throw new Error('Failed to post score: ' + response.statusText);
         }
         
+        const topScores = await response.json();
         return topScores;
       } catch (e) {
         console.error('Failed to submit score:', e);
